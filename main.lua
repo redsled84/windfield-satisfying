@@ -6,7 +6,7 @@ function love.load()
   
   ground = world:newRectangleCollider(100, 500, 600, 50)
   ground:setType('static')
-  for i = 1, 3 do
+  for i = 1, 4 do
     local platform = world:newRectangleCollider(350, 400 - ((i-1)*100), 100, 20)
     platform:setType('static')
     platform:setCollisionClass('Platform')
@@ -36,5 +36,8 @@ end
 function love.keypressed(key)
   if key == 'space' then
     player:applyLinearImpulse(0, -506)
+  end
+  if key == 'escape' then
+    love.event.quit()
   end
 end
