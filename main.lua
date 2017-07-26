@@ -32,7 +32,7 @@ function love.load()
     local cell = world:newRectangleCollider(x*tileSize, y*tileSize, tileSize, tileSize)
     cell:setType('static')
     cell:setCollisionClass('Door')
-    table.insert(cells, {x=x,y=y,val=2})
+    table.insert(cells, {x=x,y=y,val=2,seen=false})
   end
 
   local spawn = {
@@ -40,7 +40,8 @@ function love.load()
     rog._rooms[1]._walls[4][2]
   }
   dRadius = 2.3
-  player = world:newCircleCollider(spawn[1]*tileSize+tileSize, spawn[2]*tileSize, tileSize / dRadius)
+  player = world:newCircleCollider(spawn[1]*tileSize+tileSize,spawn[2]*tileSize,
+    tileSize / dRadius)
   player.touchingDoor = false
   player:setCollisionClass('Player')
   player:setPreSolve(function(c1, c2, contact)
@@ -53,8 +54,6 @@ function love.load()
       end
     end
   end)
-
-  print(#cells)
 end
 
 local garbageTimer = 0
@@ -106,12 +105,15 @@ function love.draw()
     local cell = cells[i]
     local dist
     if cell then
-      dist = math.sqrt((cell.x*tileSize+tileSize/2 - x+tileSize/dRadius)^2 + (cell.y*tileSize+tileSize/2 - y+tileSize/dRadius)^2)
+      dist = math.sqrt((cell.x*tileSize+tileSize/2 - x+tileSize/dRadius)^2
+        + (cell.y*tileSize+tileSize/2 - y+tileSize/dRadius)^2)
     end
     local alpha = 255
     if dist then
-      if dist > 360 then
+      if dist > 360 and not cell.seen then
         alpha = 0
+      elseif dist > 360 and cell.seen then
+        alpha = 35
       elseif dist > 300 then
         alpha = 80
       elseif dist > 200 then
@@ -120,6 +122,9 @@ function love.draw()
         alpha = 235
       elseif dist <= 100 then
         alpha = 255
+      end
+      if dist < 235 then
+        cell.seen = true
       end
     end
     if cell.val == 1 then
@@ -157,11 +162,14 @@ function love.draw()
     elseif v.val == 2 then
       love.graphics.setColor(255,0,0)
     end
-    love.graphics.rectangle('fill', mx+v.x*scaler+buffer, my+v.y*scaler+buffer, scaler, scaler)
+    if v.seen then
+      love.graphics.rectangle('fill', mx+v.x*scaler+buffer, my+v.y*scaler+buffer, scaler, scaler)
+    end
   end
   love.graphics.setColor(255,255,60)
   local px, py = player:getPosition()
-  love.graphics.circle('fill', mx+buffer+(px/tileSize)*scaler, my+buffer+(py/tileSize)*scaler, (tileSize/scaler)/dRadius)
+  love.graphics.circle('fill', mx+buffer+(px/tileSize)*scaler,
+    my+buffer+(py/tileSize)*scaler, (tileSize/scaler)/dRadius)
 
   -- tip box
   if player.touchingDoor then
