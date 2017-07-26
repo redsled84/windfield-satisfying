@@ -139,6 +139,31 @@ function love.draw()
       love.graphics.rectangle('fill', cell.x*tileSize, cell.y*tileSize, tileSize, tileSize)  
     end
   end
+
+  for i, v in ipairs(rog._map) do
+    for j, kv in ipairs(v) do
+      dist = math.sqrt((i*tileSize+tileSize/2 - x+tileSize/dRadius)^2
+        + (j*tileSize+tileSize/2 - y+tileSize/dRadius)^2)
+      local alpha = 255
+      if dist then
+        if dist > 360 then
+          alpha = 0
+        elseif dist > 300 then
+          alpha = 80
+        elseif dist > 200 then
+          alpha = 180
+        elseif dist > 100 then
+          alpha = 235
+        elseif dist <= 100 then
+          alpha = 255
+        end
+      end
+      if kv == 0 then
+        love.graphics.setColor(140, 90, 90, alpha)
+        love.graphics.rectangle('fill', i * tileSize, j *tileSize, tileSize, tileSize)
+      end
+    end
+  end
   
   --player
   love.graphics.setColor(255,140,235)
@@ -166,6 +191,7 @@ function love.draw()
       love.graphics.rectangle('fill', mx+v.x*scaler+buffer, my+v.y*scaler+buffer, scaler, scaler)
     end
   end
+  
   love.graphics.setColor(255,255,60)
   local px, py = player:getPosition()
   love.graphics.circle('fill', mx+buffer+(px/tileSize)*scaler,
