@@ -10,6 +10,7 @@ function love.load()
   world:addCollisionClass('Wall')
   world:addCollisionClass('Door')
   world:addCollisionClass('Player')
+  world:addCollisionClass('Bullet')
 
   tileSize = 32
   cells = {}
@@ -40,6 +41,10 @@ function love.load()
     rog._rooms[1]._walls[4][2]
   }
   dRadius = 2.3
+
+  bullets = {}
+  bulletSpeed = 350
+
   player = world:newCircleCollider(spawn[1]*tileSize+tileSize,spawn[2]*tileSize,
     tileSize / dRadius)
   player.touchingDoor = false
@@ -60,10 +65,23 @@ local garbageTimer = 0
 local collectionInterval = .5
 function love.update(dt)
   if garbageTimer > collectionInterval then
-    collectgarbage('collect')
+    -- collectgarbage('collect')
+    print(#bullets)
     garbageTimer = 0
   else
     garbageTimer = garbageTimer + dt
+  end
+
+  local deadCount = 0
+  for i = 1, #bullets do
+    if bullets[i]:isDestroyed() then
+      deadCount = deadCount + 1
+    end
+  end
+  if deadCount == #bullets then
+    for i = #bullets, 1, -1 do
+      bullets[i] = nil
+    end
   end
 
   world:update(dt)
@@ -165,14 +183,26 @@ function love.draw()
     end
   end
   
-  --player
-  love.graphics.setColor(255,140,235)
+  -- player
+  love.graphics.setColor(140, 140, 140)
   love.graphics.circle('fill', x, y, tileSize/dRadius)
   love.graphics.setColor(255, 255, 255)
   love.graphics.circle('fill', x, y, tileSize/dRadius-3)
+
+  -- bullets
+  for i=#bullets, 1, -1 do
+    local v = bullets[i]
+    if v then
+      love.graphics.setColor(255,255,255)
+      if not v:isDestroyed() then
+        love.graphics.rectangle('fill', v:getX(), v:getY(), v.width, v.height)
+      end
+    end
+  end
+
   cam:detach()
 
-  --minimap
+  -- minimap
   local scaler = 4
   local lenX = #rog._map[1] * scaler
   local lenY = #rog._map * scaler
@@ -221,5 +251,42 @@ function love.keypressed(key)
   if key == 'escape' then
     world:destroy()
     love.event.quit()
+  end
+  local px, py = player:getPosition()
+  local bullet
+  if key == 'right' then
+    bullet = world:newRectangleCollider(px + tileSize/dRadius+3, py, 6, 3)
+    bullet:setLinearVelocity(bulletSpeed, 0)
+    bullet.width = 6
+    bullet.height = 3
+  end
+  if key == 'left' then
+    bullet = world:newRectangleCollider(px - tileSize/dRadius-3, py, 6, 3)
+    bullet:setLinearVelocity(-bulletSpeed, 0)
+    bullet.width = 6
+    bullet.height = 3
+  end
+  if key == 'up' then
+    bullet = world:newRectangleCollider(px, py - tileSize/dRadius-8, 3, 6)
+    bullet:setLinearVelocity(0, -bulletSpeed)
+    bullet.width = 3
+    bullet.height = 6
+  end
+  if key == 'down' then
+    bullet = world:newRectangleCollider(px, py + tileSize/dRadius+3, 3, 6)
+    bullet:setLinearVelocity(0, bulletSpeed)
+    bullet.width = 3
+    bullet.height = 6
+  end
+  if bullet then
+    bullet:setCollisionClass('Bullet')
+    bullet:setObject(bullet)
+    bullets[#bullets+1] = bullet
+    bullet.i = #bullets+1
+    bullet:setPreSolve(function(c1, c2, contact)
+      if c1.collision_class == 'Bullet' and (c2.collision_class == 'Wall' or c2.collision_class == 'Door') then
+        bullet:destroy()
+      end
+    end)
   end
 end
