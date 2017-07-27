@@ -5,6 +5,48 @@ local inspect = require 'inspect'
 local Cam = require 'camera'
 local cam = Cam(0, 0)
 
+local function existantRect(rects, x, y)
+  for i = 1, #rects do
+    local rect = rects[i]
+    if rect.x == x and rect.y == y then
+      return true
+    end
+  end
+  return false
+end
+
+local function optimizeMap(grid)
+  local rects = {}
+  for y = 1, #grid do
+    local rx = 1
+    for x = 1, #grid[y] do
+      local rw = x - rx 
+      local n = grid[y][x]
+      local rowContainsZero = false
+      if n == 0 then
+        rowContainsZero = true
+      end
+      if not rowContainsZero and x == #grid[y] and not existantRect(rects, rx, y) then
+        table.insert(rects, {x=rx, y=y, w=rw, h=1})
+      end
+      if x < #grid[y] then
+        if n == 0 and grid[y][x+1] == 1 then
+          rx = x + 1
+        end
+        if n == 2 and grid[y-1][x] == 0 and grid[y+1][x] == 0 then
+          table.insert(rects, {x=rx, y=y, w=rw, h=1})
+          rx = x+1
+        end
+        if n == 1 and grid[y][x+1] == 0 and not existantRect(rects, rx, y) then
+          table.insert(rects, {x=rx, y=y, w=rw+1, h=1})
+        end
+      end
+    end
+  end
+  table.insert(rects, {x=#grid[1], y = 1, w = 1, h = #grid})
+  return rects
+end
+
 function love.load()
   world = wf.newWorld(0, 0, true)
   world:addCollisionClass('Wall')
@@ -12,40 +54,45 @@ function love.load()
   world:addCollisionClass('Player')
   world:addCollisionClass('Bullet')
 
-  tileSize = 32
+  tileSize = 20
   cells = {}
   -- local f = ROT.Display(40, 40)
   rog = ROT.Map.Brogue(40, 40)
-  rog:create(function(x, y, val)
-    if val == 1 then
-      local cell = world:newRectangleCollider(x*tileSize, y*tileSize, tileSize, tileSize)
-      cell:setType('static')
-      cell:setCollisionClass('Wall')
-      table.insert(cells, {x=x,y=y,val=val})
-    end
-  end, true)
-  
-  local doors = rog._doors
-
-  for i, v in ipairs(doors) do
-    local x = v[1]
-    local y = v[2]
-    local cell = world:newRectangleCollider(x*tileSize, y*tileSize, tileSize, tileSize)
+  rog:create(function(x, y, val)end, true)
+  rects = optimizeMap(rog._map)
+  for i = 1, #rects do
+    local rect = rects[i]
+    local w = rect.w > 0 and rect.w or 1
+    local h = rect.h > 0 and rect.h or 1
+    local cell = world:newRectangleCollider(rect.x*tileSize, rect.y*tileSize, w*tileSize, h*tileSize)
     cell:setType('static')
-    cell:setCollisionClass('Door')
-    table.insert(cells, {x=x,y=y,val=2,seen=false})
+    cell:setCollisionClass('Wall')
+  end
+
+  for y = 1, #rog._map do
+    for x = 1, #rog._map[y] do
+      if rog._map[y][x] == 1 then
+        table.insert(cells, {x=x,y=y,val=1,seen=false})
+      end
+      if rog._map[y][x] == 2 then
+        local cell = world:newRectangleCollider(x*tileSize, y*tileSize, tileSize, tileSize)
+        cell:setType('static')
+        cell:setCollisionClass('Door')
+        table.insert(cells, {x=x,y=y,val=2,seen=false})
+      end
+    end
   end
 
   local spawn = {
-    rog._rooms[1]._walls[4][1],
-    rog._rooms[1]._walls[4][2]
+    rog._rooms[1]._walls[2][2],
+    rog._rooms[1]._walls[2][1]
   }
   dRadius = 2.3
 
   bullets = {}
   bulletSpeed = 350
 
-  player = world:newCircleCollider(spawn[1]*tileSize+tileSize,spawn[2]*tileSize,
+  player = world:newCircleCollider(spawn[1]*tileSize+tileSize,spawn[2]*tileSize+tileSize,
     tileSize / dRadius)
   player.touchingDoor = false
   player:setCollisionClass('Player')
@@ -65,8 +112,8 @@ local garbageTimer = 0
 local collectionInterval = .5
 function love.update(dt)
   if garbageTimer > collectionInterval then
-    -- collectgarbage('collect')
-    print(#bullets)
+    collectgarbage('collect')
+    -- print(#bullets)
     garbageTimer = 0
   else
     garbageTimer = garbageTimer + dt
@@ -158,10 +205,11 @@ function love.draw()
     end
   end
 
+  -- floor
   for i, v in ipairs(rog._map) do
     for j, kv in ipairs(v) do
-      dist = math.sqrt((i*tileSize+tileSize/2 - x+tileSize/dRadius)^2
-        + (j*tileSize+tileSize/2 - y+tileSize/dRadius)^2)
+      dist = math.sqrt((j*tileSize+tileSize/2 - x+tileSize/dRadius)^2
+        + (i*tileSize+tileSize/2 - y+tileSize/dRadius)^2)
       local alpha = 255
       if dist then
         if dist > 360 then
@@ -169,16 +217,16 @@ function love.draw()
         elseif dist > 300 then
           alpha = 80
         elseif dist > 200 then
-          alpha = 180
+          alpha = 140
         elseif dist > 100 then
-          alpha = 235
+          alpha = 200
         elseif dist <= 100 then
-          alpha = 255
+          alpha = 235
         end
       end
       if kv == 0 then
-        love.graphics.setColor(140, 90, 90, alpha)
-        love.graphics.rectangle('fill', i * tileSize, j *tileSize, tileSize, tileSize)
+        love.graphics.setColor(205,133,63, alpha)
+        love.graphics.rectangle('fill', j * tileSize, i *tileSize, tileSize, tileSize)
       end
     end
   end
@@ -199,6 +247,16 @@ function love.draw()
       end
     end
   end
+  --[[
+  Printing the id of a cell
+  for y = 1, #rog._map do
+    for x = 1, #rog._map[y] do
+      local n = rog._map[y][x]
+      love.graphics.setColor(255,255,255)
+      love.graphics.print(tostring(n), x*tileSize, y*tileSize)
+    end
+  end
+  ]]
 
   cam:detach()
 
@@ -288,5 +346,8 @@ function love.keypressed(key)
         bullet:destroy()
       end
     end)
+  end
+  if key == 'r' then
+    love.event.quit('restart')
   end
 end
